@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panel Mandataria Amanda Galarza</title>
+<title>Manndataria Amanda Galarza</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -433,6 +433,73 @@ input, select, textarea, button {
 }
 </style>
 
+
+<style id="fix-liquidacion-mobile-celdas">
+/* Corrección visual de Liquidación y Valores: etiquetas pegadas a cada campo */
+.money-grid{
+  display:grid !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+.money-field{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:6px !important;
+  min-height:auto !important;
+  cursor:default !important;
+}
+.money-field span{
+  display:block !important;
+  background:#ffffff !important;
+  border:1px solid #d4d4d8 !important;
+  border-radius:8px !important;
+  padding:7px 8px !important;
+  font-size:11px !important;
+  font-weight:900 !important;
+  color:#52525b !important;
+  line-height:1.15 !important;
+  text-align:center !important;
+  min-height:34px !important;
+}
+.money-field-adelanto span{ color:#06b6d4 !important; }
+.money-field input{
+  width:100% !important;
+  min-width:0 !important;
+  text-align:center !important;
+}
+@media (max-width:900px){
+  .money-grid{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+  .money-field{
+    background:#fafafa !important;
+    border:1px solid #d4d4d8 !important;
+    border-radius:14px !important;
+    padding:10px !important;
+  }
+  .money-field span{
+    border:0 !important;
+    background:transparent !important;
+    padding:0 2px 4px 2px !important;
+    min-height:auto !important;
+    font-size:13px !important;
+    text-align:left !important;
+  }
+  .money-field input{
+    min-height:48px !important;
+    font-size:16px !important;
+    text-align:left !important;
+    border-radius:12px !important;
+  }
+  #registroDnrpa{
+    white-space:normal !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+}
+</style>
+
 </head>
 <body class="bg-stone-100 text-zinc-800 text-sm font-sans antialiased">
 <div class="flex min-h-screen">
@@ -624,28 +691,22 @@ input, select, textarea, button {
   </select>
 </div>
 
-<div class="grid grid-cols-6 gap-2 text-center text-xs font-bold bg-white/80 p-1.5 rounded border border-zinc-300 text-zinc-600">
-<div>Honorarios</div><div>Aranceles</div><div>Form. 02</div><div>Form. 04</div><div>Form. 12</div><div>Form. 59</div>
-</div>
-<div class="grid grid-cols-6 gap-2 mt-1.5 mb-3">
-<input id="hon" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="ara" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="f02" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="f04" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="f12" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="f059" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
+<div class="money-grid mb-3">
+  <label class="money-field"><span>Honorarios</span><input id="hon" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Aranceles</span><input id="ara" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Form. 02</span><input id="f02" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Form. 04</span><input id="f04" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Form. 12</span><input id="f12" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Form. 59</span><input id="f059" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
 </div>
 
-<div class="grid grid-cols-6 gap-2 text-center text-xs font-bold bg-white/80 p-1.5 rounded border border-zinc-300 text-zinc-600">
-<div>Form. 1057</div><div>Form. 13</div><div>Sol. 08</div><div>Certif. Firma</div><div>Gasto Viaje</div><div class="text-cyan-400">Adelanto</div>
-</div>
-<div class="grid grid-cols-6 gap-2 mt-1.5">
-<input id="f1057" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="s13" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="s08" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="cf" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="gv" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()">
-<input id="adelanto" type="number" class="bg-white border border-cyan-900 p-1.5 text-center rounded text-cyan-400 focus:border-cyan-500 font-bold" value="0" oninput="calc()">
+<div class="money-grid">
+  <label class="money-field"><span>Form. 1057</span><input id="f1057" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Form. 13</span><input id="s13" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Sol. 08</span><input id="s08" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Certif. Firma</span><input id="cf" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Gasto Viaje</span><input id="gv" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field money-field-adelanto"><span>Adelanto</span><input id="adelanto" type="number" class="bg-white border border-cyan-900 p-1.5 text-center rounded text-cyan-400 focus:border-cyan-500 font-bold" value="0" oninput="calc()"></label>
 </div>
 
 <div class="mt-4 grid grid-cols-3 text-center bg-white p-4 rounded-xl border border-zinc-300 font-mono">
