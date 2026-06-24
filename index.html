@@ -544,6 +544,18 @@ input, select, textarea, button {
 }
 </style>
 
+
+<style id="presupuesto-manual-amanda">
+#bloquePresupuestoManual{border:1px dashed #f59e0b;background:#fffbeb;border-radius:16px;padding:14px;margin-top:14px}
+.pm-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.pm-head h3{font-size:12px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.05em;margin:0}
+.pm-help{font-size:11px;color:#78716c;margin-top:4px}
+.pm-row{display:grid;grid-template-columns:1fr 170px 44px;gap:8px;align-items:center;margin-bottom:8px}
+.pm-row input{background:#fff;border:1px solid #d4d4d8;border-radius:10px;padding:9px;color:#27272a}
+.pm-del{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:10px;font-weight:900;min-height:40px}
+#pmTotal{font-weight:900;color:#92400e}
+@media(max-width:900px){.pm-head{display:block}.pm-row{grid-template-columns:1fr}.pm-del{width:100%}}
+</style>
 </head>
 <body class="bg-stone-100 text-zinc-800 text-sm font-sans antialiased">
 <div class="flex min-h-screen">
@@ -700,6 +712,21 @@ input, select, textarea, button {
   <option>Certificado de Fabricación / Importación Duplicado</option>
 </optgroup>
 </select>
+
+<div id="bloquePresupuestoManual" class="hidden">
+  <div class="pm-head">
+    <div>
+      <h3>✍️ Detalle manual de presupuesto</h3>
+      <div class="pm-help">Se habilita cuando no seleccionás ningún trámite. Cargá los conceptos e importes que quieras mostrar en el PDF y WhatsApp.</div>
+    </div>
+    <button type="button" onclick="agregarItemManual()" class="bg-white border border-amber-300 text-amber-700 px-3 py-2 rounded text-xs font-black hover:bg-amber-50">+ Agregar ítem</button>
+  </div>
+  <div id="listaPresupuestoManual"></div>
+  <div class="flex justify-between items-center mt-2 pt-2 border-t border-amber-200 text-xs">
+    <span class="font-bold text-zinc-600 uppercase">Total detalle manual</span>
+    <span id="pmTotal">$ 0,00</span>
+  </div>
+</div>
 
 <h4 id="tituloChecklist" class="font-bold text-xs text-amber-500 uppercase tracking-wide mt-5 mb-2 hidden"> 📋 Requisitos Obligatorios del Trámite: </h4>
 <div id="contenedorChecklist" class="p-3 bg-white border border-zinc-300 rounded-lg hidden">
@@ -2765,6 +2792,756 @@ async function agEliminarFinalFin(idx){
 }
 
 function imprimirReciboExpediente(idx){ return agRegistrarAdelantoFin(idx); }
+
+
+/* ===== PRESUPUESTO MANUAL SI NO SE SELECCIONA TRÁMITE ===== */
+function pmMoney(v){ return '$ ' + (parseFloat(v)||0).toLocaleString('es-AR',{minimumFractionDigits:2}); }
+function pmSafe(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function itemManualHTML(concepto='', importe=''){
+  return `<div class="pm-row">
+    <input class="pmConcepto" placeholder="Concepto / detalle del presupuesto" value="${pmSafe(concepto)}" oninput="calc()">
+    <input class="pmImporte" type="number" placeholder="Importe" value="${parseFloat(importe)||''}" oninput="calc()">
+    <button type="button" class="pm-del" onclick="this.closest('.pm-row').remove(); calc();">✕</button>
+  </div>`;
+}
+function agregarItemManual(concepto='', importe=''){
+  const lista = document.getElementById('listaPresupuestoManual');
+  if(!lista) return;
+  lista.insertAdjacentHTML('beforeend', itemManualHTML(concepto, importe));
+  calc();
+}
+function obtenerItemsManualDesdeFormulario(){
+  return Array.from(document.querySelectorAll('#listaPresupuestoManual .pm-row')).map(row => ({
+    concepto: row.querySelector('.pmConcepto')?.value.trim() || '',
+    importe: parseFloat(row.querySelector('.pmImporte')?.value) || 0
+  })).filter(x => x.concepto || x.importe > 0);
+}
+function setItemsManualEnFormulario(items){
+  const lista = document.getElementById('listaPresupuestoManual');
+  if(!lista) return;
+  lista.innerHTML = '';
+  (Array.isArray(items) && items.length ? items : [{concepto:'', importe:''}]).forEach(it => agregarItemManual(it.concepto || '', it.importe || ''));
+  calc();
+}
+function obtenerItemsManualExp(exp){
+  const docs = Array.isArray(exp?.documentos) ? exp.documentos : [];
+  return docs.filter(d => d && d.tipo === 'presupuesto_manual_item').map(d => ({concepto:d.concepto||'', importe:parseFloat(d.importe)||0})).filter(x=>x.concepto || x.importe>0);
+}
+function aplicarItemsManualExp(exp, items){
+  const docs = Array.isArray(exp.documentos) ? exp.documentos.filter(d => !d || d.tipo !== 'presupuesto_manual_item') : [];
+  exp.documentos = docs.concat((items||[]).filter(x=>x.concepto || x.importe>0).map(x => ({tipo:'presupuesto_manual_item', concepto:x.concepto, importe:parseFloat(x.importe)||0, fecha:new Date().toISOString()})));
+  return exp;
+}
+function togglePresupuestoManual(){
+  const tramite = document.getElementById('tramite')?.value || '';
+  const bloque = document.getElementById('bloquePresupuestoManual');
+  if(!bloque) return;
+  if(!tramite){
+    bloque.classList.remove('hidden');
+    if(!document.querySelector('#listaPresupuestoManual .pm-row')) setItemsManualEnFormulario([{concepto:'', importe:''}]);
+  } else {
+    bloque.classList.add('hidden');
+  }
+  calc();
+}
+const actualizarChecklistBaseManual = actualizarChecklist;
+actualizarChecklist = function(){ actualizarChecklistBaseManual(); togglePresupuestoManual(); };
+const calcBaseManual = calc;
+calc = function(){
+  const tramite = document.getElementById('tramite')?.value || '';
+  let total = calcBaseManual();
+  if(!tramite){
+    const manual = obtenerItemsManualDesdeFormulario().reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+    const ade = parseFloat(document.getElementById('adelanto')?.value) || 0;
+    total = manual;
+    const totalEl = document.getElementById('total');
+    const adelEl = document.getElementById('totalAdelanto');
+    const saldoEl = document.getElementById('saldoRestante');
+    const pmTotal = document.getElementById('pmTotal');
+    if(totalEl) totalEl.innerText = pmMoney(total);
+    if(adelEl) adelEl.innerText = pmMoney(ade);
+    if(pmTotal) pmTotal.innerText = pmMoney(total);
+    const saldo = total - ade;
+    if(saldoEl){
+      if(saldo <= 0 && total > 0){ saldoEl.innerText = 'PAGO COMPLETO'; saldoEl.className = 'text-lg font-black text-emerald-600'; }
+      else { saldoEl.innerText = pmMoney(Math.max(0,saldo)); saldoEl.className = 'text-lg font-black text-amber-500'; }
+    }
+  }
+  return total;
+};
+const guardarOriginalBaseManual = guardarOriginal;
+guardarOriginal = async function(){
+  const itemsManual = obtenerItemsManualDesdeFormulario();
+  const esManual = !(document.getElementById('tramite')?.value || '');
+  if(esManual && !itemsManual.length){ alert('Agregá al menos un ítem al detalle manual del presupuesto.'); return; }
+  const idxPrevio = editando;
+  const idPrevio = idxPrevio >= 0 ? datos[idxPrevio]?.id : null;
+  await guardarOriginalBaseManual();
+  if(esManual){
+    const exp = idPrevio ? datos.find(d => d.id === idPrevio) : datos[0];
+    if(exp){
+      aplicarItemsManualExp(exp, itemsManual);
+      exp.tramite = 'Presupuesto manual';
+      exp.total = itemsManual.reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+      if(exp.id){ await supabaseClient.from('expedientes').update(paraSupabase(exp)).eq('id', exp.id); await cargarDatos(); }
+    }
+  }
+};
+guardar = async function(){
+  const cliente = document.getElementById('cliente')?.value.trim();
+  const tramite = document.getElementById('tramite')?.value || '';
+  const itemsManual = obtenerItemsManualDesdeFormulario();
+  if(!cliente){ alert('Por favor complete al menos el Nombre del Cliente.'); return; }
+  if(!tramite && !itemsManual.length){ alert('Como no seleccionaste un trámite, cargá al menos un ítem en el detalle manual del presupuesto.'); return; }
+  await guardarOriginal();
+};
+const editarExpedienteBaseManual = editarExpediente;
+editarExpediente = function(idx){
+  editarExpedienteBaseManual(idx);
+  const exp = datos[idx];
+  const items = obtenerItemsManualExp(exp);
+  if(items.length){
+    document.getElementById('tramite').value = '';
+    setItemsManualEnFormulario(items);
+  }
+  togglePresupuestoManual();
+};
+const limpiarFormularioDirectoBaseManual = limpiarFormularioDirecto;
+limpiarFormularioDirecto = function(){
+  limpiarFormularioDirectoBaseManual();
+  setItemsManualEnFormulario([{concepto:'', importe:''}]);
+  togglePresupuestoManual();
+};
+const expDesdeFormularioActualBaseManual = expDesdeFormularioActual;
+expDesdeFormularioActual = function(){
+  const exp = expDesdeFormularioActualBaseManual();
+  const items = obtenerItemsManualDesdeFormulario();
+  if(!(exp.tramite || '') && items.length){
+    exp.tramite = 'Presupuesto manual';
+    exp.total = items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+    aplicarItemsManualExp(exp, items);
+  }
+  return exp;
+};
+const conceptosPresupuestoBaseManual = conceptosPresupuesto;
+conceptosPresupuesto = function(exp){
+  const items = obtenerItemsManualExp(exp);
+  if(items.length) return items.map(x => [x.concepto || 'Detalle manual', parseFloat(x.importe)||0]).filter(x=>x[1]>0 || x[0]);
+  return conceptosPresupuestoBaseManual(exp);
+};
+const construirMensajeWhatsAppBaseManual = construirMensajeWhatsApp;
+construirMensajeWhatsApp = function(exp){
+  const items = obtenerItemsManualExp(exp);
+  if(!items.length) return construirMensajeWhatsAppBaseManual(exp);
+  const total = parseFloat(exp.total) || items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+  const adelanto = parseFloat(exp.adelanto) || 0;
+  const saldo = total - adelanto;
+  const detalle = items.map(x => `• ${x.concepto}: ${pmMoney(x.importe)}`).join('\n');
+  return `Hola ${exp.cliente || ''}, te envío el presupuesto solicitado:\n\n${detalle}\n\nTotal estimado: ${pmMoney(total)}\nAdelanto registrado: ${pmMoney(adelanto)}\nSaldo restante: ${saldo <= 0 ? 'PAGO COMPLETO' : pmMoney(saldo)}\n\nEste presupuesto queda sujeto a verificación de documentación y valores vigentes al momento de iniciar el trámite.\n\nAmanda Galarza - Mandataria Nacional`;
+};
+setTimeout(togglePresupuestoManual, 0);
+</script>
+
+
+<script id="fix-presupuesto-manual-final-v2">
+/* Corrección final: detalle manual persistente, suma en PDF/WhatsApp y sin leyendas finales */
+(function(){
+  function fxMoney(v){ return '$ ' + (parseFloat(v)||0).toLocaleString('es-AR',{minimumFractionDigits:2}); }
+  function fxSafe(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function fxItemsFormulario(){
+    return Array.from(document.querySelectorAll('#listaPresupuestoManual .pm-row')).map(row => ({
+      concepto: row.querySelector('.pmConcepto')?.value.trim() || '',
+      importe: parseFloat(row.querySelector('.pmImporte')?.value) || 0
+    })).filter(x => x.concepto || x.importe > 0);
+  }
+  function fxItemsExp(exp){
+    const docs = Array.isArray(exp?.documentos) ? exp.documentos : [];
+    const items = docs.filter(d => d && d.tipo === 'presupuesto_manual_item')
+      .map(d => ({concepto: d.concepto || '', importe: parseFloat(d.importe)||0}))
+      .filter(x => x.concepto || x.importe > 0);
+    if(items.length) return items;
+    if((exp?.tramite || '').toLowerCase().includes('presupuesto manual')) return fxItemsFormulario();
+    return [];
+  }
+  function fxTotalManual(exp){
+    const items = fxItemsExp(exp);
+    if(items.length) return items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+    return parseFloat(exp?.total)||0;
+  }
+  function fxAplicar(exp, items){
+    const docs = Array.isArray(exp.documentos) ? exp.documentos.filter(d => !d || d.tipo !== 'presupuesto_manual_item') : [];
+    exp.documentos = docs.concat((items||[]).filter(x=>x.concepto || x.importe>0).map(x => ({
+      tipo:'presupuesto_manual_item', concepto:x.concepto, importe:parseFloat(x.importe)||0, fecha:new Date().toISOString()
+    })));
+    return exp;
+  }
+
+  const calcAnterior = window.calc;
+  window.calc = function(){
+    const tramite = document.getElementById('tramite')?.value || '';
+    const totalBase = typeof calcAnterior === 'function' ? calcAnterior() : 0;
+    if(tramite) return totalBase;
+    const items = fxItemsFormulario();
+    const total = items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0);
+    const ade = parseFloat(document.getElementById('adelanto')?.value) || 0;
+    const totalEl = document.getElementById('total');
+    const adelEl = document.getElementById('totalAdelanto');
+    const saldoEl = document.getElementById('saldoRestante');
+    const pmTotal = document.getElementById('pmTotal');
+    if(totalEl) totalEl.innerText = fxMoney(total);
+    if(adelEl) adelEl.innerText = fxMoney(ade);
+    if(pmTotal) pmTotal.innerText = fxMoney(total);
+    if(saldoEl){
+      const saldo = total - ade;
+      saldoEl.innerText = (saldo <= 0 && total > 0) ? 'PAGO COMPLETO' : fxMoney(Math.max(0,saldo));
+      saldoEl.className = (saldo <= 0 && total > 0) ? 'text-lg font-black text-emerald-600' : 'text-lg font-black text-amber-500';
+    }
+    return total;
+  };
+
+  window.expDesdeFormularioActual = function(){
+    const items = fxItemsFormulario();
+    const tramiteSel = document.getElementById('tramite')?.value || '';
+    const exp = {
+      cliente: document.getElementById('cliente')?.value || '',
+      dni: document.getElementById('dni')?.value || '',
+      estadoCivil: document.getElementById('estadoCivil')?.value || 'Soltero/a',
+      telefono: document.getElementById('telefono')?.value || '',
+      domicilio: document.getElementById('domicilio')?.value || '',
+      dominio: (document.getElementById('dominio')?.value || '').toUpperCase(),
+      tipoVehiculo: document.getElementById('tipoVehiculo')?.value || '',
+      marca: document.getElementById('marca')?.value || '',
+      modelo: document.getElementById('modelo')?.value || '',
+      anio: document.getElementById('anio')?.value || '',
+      tramite: tramiteSel || (items.length ? 'Presupuesto manual' : ''),
+      registroDnrpa: document.getElementById('registroDnrpa')?.value || '',
+      hon: document.getElementById('hon')?.value || 0,
+      ara: document.getElementById('ara')?.value || 0,
+      f02: document.getElementById('f02')?.value || 0,
+      f04: document.getElementById('f04')?.value || 0,
+      f12: document.getElementById('f12')?.value || 0,
+      f059: document.getElementById('f059')?.value || 0,
+      f1057: document.getElementById('f1057')?.value || 0,
+      s13: document.getElementById('s13')?.value || 0,
+      s08: document.getElementById('s08')?.value || 0,
+      cf: document.getElementById('cf')?.value || 0,
+      gv: document.getElementById('gv')?.value || 0,
+      adelanto: document.getElementById('adelanto')?.value || 0,
+      obs: document.getElementById('obs')?.value || '',
+      estado: document.getElementById('estado')?.value || 'Presupuesto',
+      documentos: [],
+      total: tramiteSel ? (typeof calcAnterior === 'function' ? calcAnterior() : 0) : items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0)
+    };
+    if(!tramiteSel && items.length) fxAplicar(exp, items);
+    return exp;
+  };
+
+  const guardarBase = window.guardarOriginal;
+  window.guardarOriginal = async function(){
+    const tramiteSel = document.getElementById('tramite')?.value || '';
+    const items = fxItemsFormulario();
+    if(!tramiteSel && !items.length){ alert('Agregá al menos un ítem al detalle manual del presupuesto.'); return; }
+
+    if(!tramiteSel){
+      const chks = [];
+      document.querySelectorAll('[id^="chk_"]').forEach(c => chks.push(c.checked));
+      const registro = {
+        id: editando === -1 ? null : datos[editando].id,
+        cliente: document.getElementById('cliente').value,
+        dni: document.getElementById('dni').value,
+        estadoCivil: document.getElementById('estadoCivil').value,
+        telefono: document.getElementById('telefono').value,
+        domicilio: document.getElementById('domicilio').value,
+        dominio: document.getElementById('dominio').value.toUpperCase(),
+        tipoVehiculo: document.getElementById('tipoVehiculo').value,
+        marca: document.getElementById('marca').value,
+        modelo: document.getElementById('modelo').value,
+        anio: document.getElementById('anio').value,
+        tramite: 'Presupuesto manual',
+        checklist: chks,
+        documentos: editando === -1 ? [] : (datos[editando].documentos || []),
+        registroDnrpa: document.getElementById('registroDnrpa').value,
+        hon: 0, ara: 0, f02: 0, f04: 0, f12: 0, f059: 0, f1057: 0, s13: 0, s08: 0, cf: 0, gv: 0,
+        adelanto: document.getElementById('adelanto').value,
+        obs: document.getElementById('obs').value,
+        estado: document.getElementById('estado').value,
+        fechaTurno: document.getElementById('fechaTurno').value,
+        horaTurno: document.getElementById('horaTurno').value,
+        lugarTurno: document.getElementById('lugarTurno').value,
+        seguimiento: document.getElementById('seguimiento').value,
+        total: items.reduce((a,x)=>a+(parseFloat(x.importe)||0),0),
+        fechaAlta: editando === -1 ? new Date().toLocaleDateString('es-AR') : datos[editando].fechaAlta
+      };
+      fxAplicar(registro, items);
+      const payload = paraSupabase(registro);
+      let respuesta;
+      if(editando === -1) respuesta = await supabaseClient.from('expedientes').insert(payload).select().single();
+      else respuesta = await supabaseClient.from('expedientes').update(payload).eq('id', registro.id).select().single();
+      if(respuesta.error){ alert('No se pudo guardar en Supabase: ' + respuesta.error.message); console.error(respuesta.error); return; }
+      alert(editando === -1 ? 'Presupuesto manual guardado online' : 'Presupuesto manual actualizado online');
+      editando = -1;
+      const btn = document.getElementById('btnGuardar');
+      if(btn){ btn.innerText = 'Guardar Presupuesto'; btn.className = 'bg-amber-600 text-black px-5 py-2 rounded font-black hover:bg-amber-500 transition text-xs uppercase tracking-wider'; }
+      limpiarFormularioDirecto();
+      await cargarDatos();
+      return;
+    }
+    return guardarBase();
+  };
+
+  window.guardar = async function(){
+    const cliente = document.getElementById('cliente')?.value.trim();
+    const tramite = document.getElementById('tramite')?.value || '';
+    const items = fxItemsFormulario();
+    if(!cliente){ alert('Por favor complete al menos el Nombre del Cliente.'); return; }
+    if(!tramite && !items.length){ alert('Como no seleccionaste un trámite, cargá al menos un ítem en el detalle manual del presupuesto.'); return; }
+    await window.guardarOriginal();
+  };
+
+  const agItemsIncluyeBase = window.agItemsIncluye;
+  window.agItemsIncluye = function(exp){
+    const items = fxItemsExp(exp);
+    if(items.length) return items.map(x => x.concepto || 'Detalle manual');
+    return typeof agItemsIncluyeBase === 'function' ? agItemsIncluyeBase(exp) : [];
+  };
+
+  window.conceptosPresupuesto = function(exp){
+    const items = fxItemsExp(exp);
+    if(items.length) return items.map(x => [x.concepto || 'Detalle manual', parseFloat(x.importe)||0]);
+    const base = [['Honorarios', exp.hon], ['Aranceles', exp.ara], ['Formulario 02', exp.f02], ['Formulario 04', exp.f04], ['Formulario 12', exp.f12], ['Formulario 59', exp.f059], ['Formulario 1057', exp.f1057], ['Formulario 13', exp.s13], ['Solicitud 08', exp.s08], ['Certificación de firma', exp.cf], ['Gasto de viaje', exp.gv]];
+    return base.map(([n,v]) => [n, parseFloat(v)||0]).filter(x => x[1] > 0);
+  };
+
+  window.construirMensajeWhatsApp = function(exp){
+    const items = fxItemsExp(exp);
+    const total = items.length ? fxTotalManual(exp) : (parseFloat(exp.total)||0);
+    const adelanto = parseFloat(exp.adelanto)||0;
+    const saldo = total - adelanto;
+    const veh = [exp.tipoVehiculo, exp.marca, exp.modelo, exp.anio ? '('+exp.anio+')' : '', exp.dominio ? '- Dominio '+exp.dominio : ''].filter(Boolean).join(' ');
+    const detalle = items.length ? '\n\nDetalle del presupuesto:\n' + items.map(x => `• ${x.concepto}: ${fxMoney(x.importe)}`).join('\n') : '';
+    return `Hola ${exp.cliente || ''}, te envío el presupuesto solicitado${veh ? ' para ' + veh : ''}.${detalle}\n\nTotal estimado: ${fxMoney(total)}\nAdelanto registrado: ${fxMoney(adelanto)}\nSaldo restante: ${saldo <= 0 ? 'PAGO COMPLETO' : fxMoney(saldo)}\n\nAmanda Galarza - Mandataria Nacional`;
+  };
+
+  window.abrirPresupuesto = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const items = fxItemsExp(exp);
+    const total = items.length ? fxTotalManual(exp) : (parseFloat(exp.total)||0);
+    const fecha = (typeof agFecha === 'function') ? agFecha() : new Date().toLocaleDateString('es-AR');
+    const nro = (typeof numeroPresupuesto === 'function') ? numeroPresupuesto(exp) : '10-0001';
+    const titulo = items.length ? 'Presupuesto manual' : (exp.tramite || 'Trámite automotor');
+    const incluye = items.length
+      ? items.map(i=>`<tr><td>${fxSafe(i.concepto || 'Detalle manual')}</td><td>${fxMoney(i.importe)}</td></tr>`).join('')
+      : (typeof agItemsIncluyeBase === 'function' ? agItemsIncluyeBase(exp).map(i=>`<li>${fxSafe(i)}</li>`).join('') : '');
+    const bloqueIncluye = items.length
+      ? `<div class="incluye"><h3>Detalle del presupuesto</h3><table><tbody>${incluye}</tbody></table></div>`
+      : `<div class="incluye"><h3>Incluye</h3><ul>${incluye}</ul></div>`;
+    const obs = exp.obs ? `<div class="nota"><b>Observaciones:</b><br>${fxSafe(exp.obs).replace(/\n/g,'<br>')}</div>` : '';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Presupuesto ${nro}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#eee;color:#222;padding:22px}.hoja{max-width:820px;margin:auto;background:white;border-radius:18px;overflow:hidden;border:1px solid #ddd}.head{display:flex;align-items:center;gap:18px;background:linear-gradient(135deg,#111,#2b2112);color:white;padding:24px;border-bottom:4px solid #d6a33a}.logo{width:92px;height:92px;border-radius:50%;object-fit:cover;border:2px solid #d6a33a;background:#000}.brand h1{margin:0;font-size:27px;letter-spacing:.04em}.brand div{font-size:12px;color:#e8c56e;text-transform:uppercase;letter-spacing:.22em;margin-top:4px}.nro{margin-left:auto;text-align:right;font-size:13px;line-height:1.6}.body{padding:26px}.titulo{font-size:22px;font-weight:900;margin:0 0 16px;color:#111;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:12px}.lbl{font-size:10px;text-transform:uppercase;color:#777;font-weight:900;letter-spacing:.09em}.val{font-size:14px;font-weight:800;margin-top:5px}.incluye{border:1px solid #e4e4e7;border-radius:14px;padding:16px;background:#fff}.incluye h3{margin:0 0 10px;color:#92400e;font-size:14px;text-transform:uppercase}.incluye ul{margin:0;padding-left:20px;line-height:1.65;font-size:13px}.incluye table{width:100%;border-collapse:collapse;font-size:13px}.incluye td{padding:9px 4px;border-bottom:1px solid #eee}.incluye td:last-child{text-align:right;font-weight:900;white-space:nowrap}.total{margin-top:18px;background:#fffbeb;border:2px solid #d6a33a;border-radius:14px;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:12px}.total span{font-size:13px;text-transform:uppercase;font-weight:900;color:#78350f}.total b{font-size:26px;color:#111}.nota{margin-top:16px;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:13px;font-size:12px;line-height:1.5;color:#444}.firma{display:flex;justify-content:space-between;margin-top:36px;gap:28px;font-size:12px;color:#555}.linea{border-top:1px solid #999;padding-top:8px;min-width:220px;text-align:center}.pie{padding:16px 26px;border-top:1px solid #eee;font-size:11px;color:#777;display:flex;justify-content:space-between;gap:10px}@media(max-width:700px){body{padding:8px}.head{display:block;text-align:center}.nro{text-align:center;margin:12px 0 0}.grid{grid-template-columns:1fr}.total{display:block;text-align:center}.firma{display:block}.linea{margin-top:28px}}@media print{body{background:white;padding:0}.hoja{border:0;border-radius:0}}</style></head><body><div class="hoja"><div class="head"><img class="logo" src="${AG_LOGO_DATA}"><div class="brand"><h1>Amanda Galarza</h1><div>Mandataria | Gestora automotor</div></div><div class="nro"><b>Presupuesto N° ${nro}</b><br>Fecha: ${fecha}<br>Validez: 7 días</div></div><div class="body"><h2 class="titulo">Presupuesto – ${fxSafe(titulo)}</h2><div class="grid"><div class="box"><div class="lbl">Cliente</div><div class="val">${fxSafe(exp.cliente||'Sin cliente')}</div></div><div class="box"><div class="lbl">DNI / CUIT</div><div class="val">${fxSafe(exp.dni||'S/D')}</div></div><div class="box"><div class="lbl">Dominio</div><div class="val">${fxSafe((exp.dominio||'S/D').toUpperCase())}</div></div><div class="box"><div class="lbl">Vehículo</div><div class="val">${fxSafe([exp.tipoVehiculo,exp.marca,exp.modelo,exp.anio? '('+exp.anio+')':''].filter(Boolean).join(' '))}</div></div><div class="box"><div class="lbl">Registro</div><div class="val">${fxSafe(exp.registroDnrpa||'A confirmar')}</div></div><div class="box"><div class="lbl">Teléfono</div><div class="val">${fxSafe(exp.telefono||'S/D')}</div></div></div>${bloqueIncluye}<div class="total"><span>Costo total del trámite</span><b>${fxMoney(total)}</b></div>${obs}<div class="firma"><div class="linea">Amanda Galarza<br>Mandataria Automotor</div><div class="linea">Firma / conformidad cliente</div></div></div><div class="pie"><span>Documento generado desde plataforma de gestión</span><span>Presupuesto N° ${nro}</span></div></div><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ alert('Permití ventanas emergentes para imprimir o guardar PDF.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+})();
+</script>
+
+
+
+<script id="fix-manual-detalle-sin-importes-v3">
+/* Ajuste solicitado: el detalle manual no lleva importes; los valores se cargan solo en Liquidación y Valores. */
+(function(){
+  const MONEY_IDS = ['hon','ara','f02','f04','f12','f059','f1057','s13','s08','cf','gv'];
+  function n(v){ return parseFloat(v) || 0; }
+  function money(v){ return '$ ' + (n(v)).toLocaleString('es-AR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function safe(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function totalLiquidacion(){ return MONEY_IDS.reduce((a,id)=>a+n(document.getElementById(id)?.value),0); }
+  function itemsManualForm(){
+    return Array.from(document.querySelectorAll('#listaPresupuestoManual .pm-row')).map(row => ({
+      concepto: (row.querySelector('.pmConcepto')?.value || '').trim(),
+      importe: 0
+    })).filter(x => x.concepto);
+  }
+  function itemsManualExp(exp){
+    const docs = Array.isArray(exp?.documentos) ? exp.documentos : [];
+    return docs.filter(d => d && d.tipo === 'presupuesto_manual_item')
+      .map(d => ({concepto: d.concepto || '', importe: 0}))
+      .filter(x => x.concepto);
+  }
+  function aplicarItems(exp, items){
+    const docs = Array.isArray(exp.documentos) ? exp.documentos.filter(d => !d || d.tipo !== 'presupuesto_manual_item') : [];
+    exp.documentos = docs.concat((items||[]).filter(x=>x.concepto).map(x => ({
+      tipo:'presupuesto_manual_item',
+      concepto:x.concepto,
+      importe:0,
+      fecha:new Date().toISOString()
+    })));
+    return exp;
+  }
+  function setItems(items){
+    const lista = document.getElementById('listaPresupuestoManual');
+    if(!lista) return;
+    lista.innerHTML = '';
+    (Array.isArray(items) && items.length ? items : [{concepto:''}]).forEach(it => {
+      lista.insertAdjacentHTML('beforeend', `<div class="pm-row"><input class="pmConcepto" placeholder="Detalle que se mostrará en INCLUYE" value="${safe(it.concepto || '')}" oninput="calc()"><button type="button" class="pm-del" onclick="this.closest('.pm-row').remove(); calc();">✕</button></div>`);
+    });
+    calc();
+  }
+
+  const style = document.createElement('style');
+  style.textContent = `
+    #bloquePresupuestoManual{background:#fff;border:1px solid #e4e4e7;border-radius:14px}
+    #bloquePresupuestoManual .pm-help{color:#71717a}
+    #bloquePresupuestoManual .pm-row{grid-template-columns:1fr 44px!important}
+    #bloquePresupuestoManual .pmImporte{display:none!important}
+    #bloquePresupuestoManual .flex.justify-between.items-center.mt-2{display:none!important}
+    @media(max-width:900px){#bloquePresupuestoManual .pm-row{grid-template-columns:1fr!important}}
+  `;
+  document.head.appendChild(style);
+
+  window.itemManualHTML = function(concepto='', importe=''){
+    return `<div class="pm-row"><input class="pmConcepto" placeholder="Detalle que se mostrará en INCLUYE" value="${safe(concepto)}" oninput="calc()"><button type="button" class="pm-del" onclick="this.closest('.pm-row').remove(); calc();">✕</button></div>`;
+  };
+  window.agregarItemManual = function(concepto='', importe=''){
+    const lista = document.getElementById('listaPresupuestoManual');
+    if(!lista) return;
+    lista.insertAdjacentHTML('beforeend', window.itemManualHTML(concepto, ''));
+    calc();
+  };
+  window.obtenerItemsManualDesdeFormulario = itemsManualForm;
+  window.setItemsManualEnFormulario = setItems;
+
+  window.calc = function(){
+    const total = totalLiquidacion();
+    const ade = n(document.getElementById('adelanto')?.value);
+    const totalEl = document.getElementById('total');
+    const adelEl = document.getElementById('totalAdelanto');
+    const saldoEl = document.getElementById('saldoRestante');
+    const pmTotal = document.getElementById('pmTotal');
+    if(totalEl) totalEl.innerText = money(total);
+    if(adelEl) adelEl.innerText = money(ade);
+    if(pmTotal) pmTotal.innerText = '';
+    const saldo = total - ade;
+    if(saldoEl){
+      if(saldo <= 0 && total > 0){ saldoEl.innerText = 'PAGO COMPLETO'; saldoEl.className = 'text-lg font-black text-emerald-600'; }
+      else { saldoEl.innerText = money(Math.max(0,saldo)); saldoEl.className = 'text-lg font-black text-amber-500'; }
+    }
+    return total;
+  };
+
+  window.togglePresupuestoManual = function(){
+    const tramite = document.getElementById('tramite')?.value || '';
+    const bloque = document.getElementById('bloquePresupuestoManual');
+    if(!bloque) return;
+    const h = bloque.querySelector('h3'); if(h) h.textContent = '✍️ Incluye / detalle manual';
+    const help = bloque.querySelector('.pm-help'); if(help) help.textContent = 'Se habilita cuando no seleccionás ningún trámite. Cargá solo los detalles que querés que aparezcan en la sección INCLUYE. Los importes se cargan abajo, en Liquidación y Valores.';
+    const btn = bloque.querySelector('button[onclick*="agregarItemManual"]'); if(btn) btn.textContent = '+ Agregar detalle';
+    if(!tramite){
+      bloque.classList.remove('hidden');
+      if(!document.querySelector('#listaPresupuestoManual .pm-row')) setItems([{concepto:''}]);
+    } else {
+      bloque.classList.add('hidden');
+    }
+    calc();
+  };
+
+  const chkBase = window.actualizarChecklist;
+  window.actualizarChecklist = function(){ if(typeof chkBase === 'function') chkBase(); window.togglePresupuestoManual(); };
+
+  const editarBase = window.editarExpediente;
+  window.editarExpediente = function(idx){
+    if(typeof editarBase === 'function') editarBase(idx);
+    const exp = (window.datos || datos || [])[idx];
+    const items = itemsManualExp(exp);
+    if(items.length){
+      const tramite = document.getElementById('tramite'); if(tramite) tramite.value = '';
+      setItems(items);
+    }
+    window.togglePresupuestoManual();
+    calc();
+  };
+
+  window.expDesdeFormularioActual = function(){
+    const items = itemsManualForm();
+    const tramiteSel = document.getElementById('tramite')?.value || '';
+    const exp = {
+      cliente: document.getElementById('cliente')?.value.trim() || '',
+      dni: document.getElementById('dni')?.value.trim() || '',
+      estadoCivil: document.getElementById('estadoCivil')?.value || 'Soltero/a',
+      telefono: document.getElementById('telefono')?.value || '',
+      domicilio: document.getElementById('domicilio')?.value || '',
+      dominio: document.getElementById('dominio')?.value || '',
+      tipoVehiculo: document.getElementById('tipoVehiculo')?.value || 'Auto',
+      marca: document.getElementById('marca')?.value || '',
+      modelo: document.getElementById('modelo')?.value || '',
+      anio: document.getElementById('anio')?.value || '',
+      tramite: tramiteSel || (items.length ? 'Presupuesto manual' : ''),
+      checklist: [],
+      documentos: editando === -1 ? [] : ((datos[editando] && datos[editando].documentos) || []),
+      registroDnrpa: document.getElementById('registroDnrpa')?.value || '',
+      hon: document.getElementById('hon')?.value || 0,
+      ara: document.getElementById('ara')?.value || 0,
+      f02: document.getElementById('f02')?.value || 0,
+      f04: document.getElementById('f04')?.value || 0,
+      f12: document.getElementById('f12')?.value || 0,
+      f059: document.getElementById('f059')?.value || 0,
+      f1057: document.getElementById('f1057')?.value || 0,
+      s13: document.getElementById('s13')?.value || 0,
+      s08: document.getElementById('s08')?.value || 0,
+      cf: document.getElementById('cf')?.value || 0,
+      gv: document.getElementById('gv')?.value || 0,
+      adelanto: document.getElementById('adelanto')?.value || 0,
+      obs: document.getElementById('obs')?.value || '',
+      estado: document.getElementById('estado')?.value || 'Presupuesto',
+      fechaTurno: document.getElementById('fechaTurno')?.value || '',
+      horaTurno: document.getElementById('horaTurno')?.value || '',
+      lugarTurno: document.getElementById('lugarTurno')?.value || '',
+      seguimiento: document.getElementById('seguimiento')?.value || '',
+      total: totalLiquidacion(),
+      fechaAlta: editando === -1 ? new Date().toLocaleDateString('es-AR') : (datos[editando]?.fechaAlta || new Date().toLocaleDateString('es-AR'))
+    };
+    if(editando !== -1 && datos[editando]?.id) exp.id = datos[editando].id;
+    if(items.length) aplicarItems(exp, items);
+    return exp;
+  };
+
+  window.guardarOriginal = async function(){
+    const exp = window.expDesdeFormularioActual();
+    const payload = paraSupabase(exp);
+    let respuesta;
+    if(editando === -1) respuesta = await supabaseClient.from('expedientes').insert(payload).select().single();
+    else respuesta = await supabaseClient.from('expedientes').update(payload).eq('id', exp.id).select().single();
+    if(respuesta.error){ alert('No se pudo guardar en Supabase: ' + respuesta.error.message); console.error(respuesta.error); return; }
+    alert(editando === -1 ? 'Presupuesto guardado online' : 'Presupuesto actualizado online');
+    editando = -1;
+    const btn = document.getElementById('btnGuardar');
+    if(btn){ btn.innerText = 'Guardar Presupuesto'; btn.className = 'bg-amber-600 text-black px-5 py-2 rounded font-black hover:bg-amber-500 transition text-xs uppercase tracking-wider'; }
+    if(typeof limpiarFormularioDirecto === 'function') limpiarFormularioDirecto();
+    await cargarDatos();
+  };
+
+  window.guardar = async function(){
+    const cliente = document.getElementById('cliente')?.value.trim();
+    const tramite = document.getElementById('tramite')?.value || '';
+    const items = itemsManualForm();
+    if(!cliente){ alert('Por favor complete al menos el Nombre del Cliente.'); return; }
+    if(!tramite && !items.length){ alert('Como no seleccionaste un trámite, cargá al menos un detalle manual para la sección INCLUYE.'); return; }
+    await window.guardarOriginal();
+  };
+
+  window.agItemsIncluye = function(exp){
+    const items = itemsManualExp(exp);
+    if(items.length) return items.map(x => x.concepto);
+    return (window.baseChecklist && window.baseChecklist[exp?.tramite]) ? window.baseChecklist[exp.tramite] : (typeof agItemsIncluyeBase === 'function' ? agItemsIncluyeBase(exp) : []);
+  };
+
+  window.conceptosPresupuesto = function(exp){
+    const base = [['Honorarios', exp.hon], ['Aranceles', exp.ara], ['Formulario 02', exp.f02], ['Formulario 04', exp.f04], ['Formulario 12', exp.f12], ['Formulario 59', exp.f059], ['Formulario 1057', exp.f1057], ['Formulario 13', exp.s13], ['Solicitud 08', exp.s08], ['Certificación de firma', exp.cf], ['Gasto de viaje', exp.gv]];
+    return base.map(([nombre, val]) => [nombre, n(val)]).filter(x => x[1] > 0);
+  };
+
+  window.construirMensajeWhatsApp = function(exp){
+    const items = itemsManualExp(exp);
+    const total = n(exp.total);
+    const adelanto = n(exp.adelanto);
+    const saldo = total - adelanto;
+    const veh = [exp.tipoVehiculo, exp.marca, exp.modelo, exp.anio ? '('+exp.anio+')' : '', exp.dominio ? '- Dominio '+exp.dominio : ''].filter(Boolean).join(' ');
+    const detalle = items.length ? '\n\nIncluye:\n' + items.map(x => `• ${x.concepto}`).join('\n') : '';
+    return `Hola ${exp.cliente || ''}, te envío el presupuesto solicitado${veh ? ' para ' + veh : ''}.${detalle}\n\nTotal estimado: ${money(total)}\nAdelanto registrado: ${money(adelanto)}\nSaldo restante: ${saldo <= 0 && total > 0 ? 'PAGO COMPLETO' : money(Math.max(0,saldo))}\n\nAmanda Galarza - Mandataria Nacional`;
+  };
+
+  window.abrirPresupuesto = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const items = itemsManualExp(exp);
+    const total = n(exp.total);
+    const fecha = (typeof agFecha === 'function') ? agFecha() : new Date().toLocaleDateString('es-AR');
+    const nro = (typeof numeroPresupuesto === 'function') ? numeroPresupuesto(exp) : '10-0001';
+    const titulo = items.length ? 'Presupuesto manual' : (exp.tramite || 'Trámite automotor');
+    const incluye = items.length
+      ? items.map(i=>`<li>${safe(i.concepto)}</li>`).join('')
+      : (typeof agItemsIncluye === 'function' ? agItemsIncluye(exp).map(i=>`<li>${safe(i)}</li>`).join('') : '');
+    const obs = exp.obs ? `<div class="nota"><b>Observaciones:</b><br>${safe(exp.obs).replace(/\n/g,'<br>')}</div>` : '';
+    const logo = (typeof AG_LOGO_DATA !== 'undefined') ? AG_LOGO_DATA : '';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Presupuesto ${nro}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#eee;color:#222;padding:22px}.hoja{max-width:820px;margin:auto;background:white;border-radius:18px;overflow:hidden;border:1px solid #ddd}.head{display:flex;align-items:center;gap:18px;background:linear-gradient(135deg,#111,#2b2112);color:white;padding:24px;border-bottom:4px solid #d6a33a}.logo{width:92px;height:92px;border-radius:50%;object-fit:cover;border:2px solid #d6a33a;background:#000}.brand h1{margin:0;font-size:27px;letter-spacing:.04em}.brand div{font-size:12px;color:#e8c56e;text-transform:uppercase;letter-spacing:.22em;margin-top:4px}.nro{margin-left:auto;text-align:right;font-size:13px;line-height:1.6}.body{padding:26px}.titulo{font-size:22px;font-weight:900;margin:0 0 16px;color:#111;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:12px}.lbl{font-size:10px;text-transform:uppercase;color:#777;font-weight:900;letter-spacing:.09em}.val{font-size:14px;font-weight:800;margin-top:5px}.incluye{border:1px solid #e4e4e7;border-radius:14px;padding:16px;background:#fff}.incluye h3{margin:0 0 10px;color:#92400e;font-size:14px;text-transform:uppercase}.incluye ul{margin:0;padding-left:20px;line-height:1.65;font-size:13px}.total{margin-top:18px;background:#fffbeb;border:2px solid #d6a33a;border-radius:14px;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:12px}.total span{font-size:13px;text-transform:uppercase;font-weight:900;color:#78350f}.total b{font-size:26px;color:#111}.nota{margin-top:16px;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:13px;font-size:12px;line-height:1.5;color:#444}.firma{display:flex;justify-content:space-between;margin-top:36px;gap:28px;font-size:12px;color:#555}.linea{border-top:1px solid #999;padding-top:8px;min-width:220px;text-align:center}.pie{padding:16px 26px;border-top:1px solid #eee;font-size:11px;color:#777;display:flex;justify-content:space-between;gap:10px}@media(max-width:700px){body{padding:8px}.head{display:block;text-align:center}.nro{text-align:center;margin:12px 0 0}.grid{grid-template-columns:1fr}.total{display:block;text-align:center}.firma{display:block}.linea{margin-top:28px}}@media print{body{background:white;padding:0}.hoja{border:0;border-radius:0}}</style></head><body><div class="hoja"><div class="head">${logo ? `<img class="logo" src="${logo}">` : ''}<div class="brand"><h1>Amanda Galarza</h1><div>Mandataria | Gestora automotor</div></div><div class="nro"><b>Presupuesto N° ${nro}</b><br>Fecha: ${fecha}<br>Validez: 7 días</div></div><div class="body"><h2 class="titulo">Presupuesto – ${safe(titulo)}</h2><div class="grid"><div class="box"><div class="lbl">Cliente</div><div class="val">${safe(exp.cliente||'Sin cliente')}</div></div><div class="box"><div class="lbl">DNI / CUIT</div><div class="val">${safe(exp.dni||'S/D')}</div></div><div class="box"><div class="lbl">Dominio</div><div class="val">${safe((exp.dominio||'S/D').toUpperCase())}</div></div><div class="box"><div class="lbl">Vehículo</div><div class="val">${safe([exp.tipoVehiculo,exp.marca,exp.modelo,exp.anio? '('+exp.anio+')':''].filter(Boolean).join(' '))}</div></div><div class="box"><div class="lbl">Registro</div><div class="val">${safe(exp.registroDnrpa||'A confirmar')}</div></div><div class="box"><div class="lbl">Teléfono</div><div class="val">${safe(exp.telefono||'S/D')}</div></div></div><div class="incluye"><h3>Incluye</h3><ul>${incluye}</ul></div><div class="total"><span>Costo total del trámite</span><b>${money(total)}</b></div>${obs}<div class="firma"><div class="linea">Amanda Galarza<br>Mandataria Automotor</div><div class="linea">Firma / conformidad cliente</div></div></div><div class="pie"><span>Documento generado desde plataforma de gestión</span><span>Presupuesto N° ${nro}</span></div></div><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ alert('Permití ventanas emergentes para imprimir o guardar PDF.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
+  const detalleBase = window.verDetalleExpediente;
+  window.verDetalleExpediente = function(idx){
+    if(typeof detalleBase === 'function') detalleBase(idx);
+    const exp = (window.datos || datos || [])[idx];
+    const items = itemsManualExp(exp);
+    if(items.length){
+      document.querySelectorAll('#detalleExpediente h3').forEach(h => {
+        if((h.textContent || '').includes('Documentación relevante')){
+          const card = h.closest('.bg-white.border.border-zinc-300.rounded-xl.p-4');
+          if(card) card.remove();
+        }
+      });
+      const right = document.querySelector('#detalleExpediente .col-span-12.xl\\:col-span-8.space-y-4');
+      if(right){
+        const div = document.createElement('div');
+        div.className = 'bg-white border border-zinc-300 rounded-xl p-4';
+        div.innerHTML = `<h3 class="text-xs font-black text-amber-500 uppercase tracking-wider mb-3">📝 Incluye / detalle del presupuesto</h3><ul class="list-disc pl-5 text-sm text-zinc-700 space-y-1">${items.map(i=>`<li>${safe(i.concepto)}</li>`).join('')}</ul>`;
+        right.insertBefore(div, right.children[1] || null);
+      }
+    }
+  };
+
+  setTimeout(()=>{ window.togglePresupuestoManual(); calc(); }, 50);
+})();
+</script>
+
+
+
+<script id="fix-titulo-presupuesto-manual-reparado-v4">
+/* Título + Incluye + Monto para presupuesto manual, sin tocar estructura de Supabase. */
+(function(){
+  const TITLE_TIPO = 'presupuesto_manual_titulo';
+  const ITEM_TIPO = 'presupuesto_manual_item';
+  const MONEY_IDS = ['hon','ara','f02','f04','f12','f059','f1057','s13','s08','cf','gv'];
+  function n(v){ return parseFloat(v) || 0; }
+  function money(v){ return '$ ' + n(v).toLocaleString('es-AR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function safe(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function docs(exp){ return Array.isArray(exp && exp.documentos) ? exp.documentos : []; }
+  function tituloExp(exp){
+    const d = docs(exp).find(x => x && x.tipo === TITLE_TIPO);
+    return String((d && d.titulo) || exp?.tituloPresupuesto || '').trim();
+  }
+  function itemsExp(exp){
+    return docs(exp).filter(x => x && x.tipo === ITEM_TIPO).map(x => ({concepto:String(x.concepto||'').trim()})).filter(x=>x.concepto);
+  }
+  function itemsForm(){
+    return Array.from(document.querySelectorAll('#listaPresupuestoManual .pm-row')).map(row => ({concepto:(row.querySelector('.pmConcepto')?.value || '').trim()})).filter(x=>x.concepto);
+  }
+  function tituloForm(){ return (document.getElementById('tituloPresupuestoManual')?.value || '').trim(); }
+  function totalLiquidacion(){ return MONEY_IDS.reduce((a,id)=>a+n(document.getElementById(id)?.value),0); }
+
+  function asegurarCampoTitulo(){
+    const bloque = document.getElementById('bloquePresupuestoManual');
+    if(!bloque || document.getElementById('tituloPresupuestoManual')) return;
+    const head = bloque.querySelector('.pm-head');
+    const wrap = document.createElement('div');
+    wrap.id = 'wrapTituloPresupuestoManual';
+    wrap.className = 'mb-3';
+    wrap.innerHTML = `
+      <label class="block text-[11px] font-black text-zinc-600 uppercase tracking-wider mb-1">📋 Título del presupuesto</label>
+      <input id="tituloPresupuestoManual" class="bg-white border border-zinc-300 p-2 w-full rounded text-zinc-800 focus:outline-none focus:border-amber-500 placeholder-zinc-400" placeholder="Ej: Transferencia de Motovehículo / Alta API / Trámite Especial">
+    `;
+    if(head && head.parentNode) head.parentNode.insertBefore(wrap, head.nextSibling);
+  }
+
+  const oldToggle = window.togglePresupuestoManual;
+  window.togglePresupuestoManual = function(){
+    if(typeof oldToggle === 'function') oldToggle();
+    asegurarCampoTitulo();
+    const tramite = document.getElementById('tramite')?.value || '';
+    const bloque = document.getElementById('bloquePresupuestoManual');
+    if(bloque){
+      const h = bloque.querySelector('h3'); if(h) h.textContent = '✍️ Incluye / detalle manual';
+      const help = bloque.querySelector('.pm-help'); if(help) help.textContent = 'Cuando no seleccionás trámite, cargá el título del presupuesto y la lista de tareas que aparecerán en INCLUYE. El monto se toma de Liquidación y Valores.';
+    }
+    const input = document.getElementById('tituloPresupuestoManual');
+    if(input && tramite && (!input.value || input.dataset.auto === '1')){ input.value = tramite; input.dataset.auto = '1'; }
+    if(input && !tramite && input.dataset.auto === '1'){ input.value = ''; input.dataset.auto = ''; }
+  };
+
+  const oldActualizarChecklist = window.actualizarChecklist;
+  window.actualizarChecklist = function(){
+    if(typeof oldActualizarChecklist === 'function') oldActualizarChecklist();
+    window.togglePresupuestoManual();
+  };
+
+  function aplicarTitulo(exp){
+    const titulo = tituloForm();
+    exp.tituloPresupuesto = titulo;
+    const sinTitulo = docs(exp).filter(d => !d || d.tipo !== TITLE_TIPO);
+    exp.documentos = sinTitulo;
+    if(titulo) exp.documentos.push({tipo:TITLE_TIPO, titulo:titulo, fecha:new Date().toISOString()});
+    return exp;
+  }
+
+  const oldExpForm = window.expDesdeFormularioActual;
+  window.expDesdeFormularioActual = function(){
+    const exp = (typeof oldExpForm === 'function') ? oldExpForm() : {};
+    return aplicarTitulo(exp);
+  };
+
+  const oldGuardar = window.guardar;
+  window.guardar = async function(){
+    const cliente = document.getElementById('cliente')?.value.trim();
+    const tramite = document.getElementById('tramite')?.value || '';
+    const items = itemsForm();
+    const titulo = tituloForm();
+    if(!cliente){ alert('Por favor complete al menos el Nombre del Cliente.'); return; }
+    if(!tramite && !titulo){ alert('Cargá el título del presupuesto manual.'); return; }
+    if(!tramite && !items.length){ alert('Agregá al menos un detalle para la sección INCLUYE.'); return; }
+    if(typeof oldGuardar === 'function') return await oldGuardar();
+  };
+
+  const oldEditar = window.editarExpediente;
+  window.editarExpediente = function(idx){
+    if(typeof oldEditar === 'function') oldEditar(idx);
+    setTimeout(()=>{
+      asegurarCampoTitulo();
+      const exp = (window.datos || datos || [])[idx];
+      const t = tituloExp(exp) || ((exp?.tramite && exp.tramite !== 'Presupuesto manual') ? exp.tramite : '');
+      const input = document.getElementById('tituloPresupuestoManual');
+      if(input){ input.value = t; input.dataset.auto = ''; }
+      window.togglePresupuestoManual();
+    },0);
+  };
+
+  const oldLimpiar = window.limpiarFormulario;
+  window.limpiarFormulario = function(){
+    if(typeof oldLimpiar === 'function') oldLimpiar();
+    setTimeout(()=>{ const i=document.getElementById('tituloPresupuestoManual'); if(i){i.value=''; i.dataset.auto='';} window.togglePresupuestoManual(); },0);
+  };
+
+  window.construirMensajeWhatsApp = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const items = itemsExp(exp);
+    const titulo = tituloExp(exp) || (items.length ? 'Presupuesto personalizado' : (exp.tramite || 'Trámite automotor'));
+    const total = n(exp.total);
+    const adelanto = n(exp.adelanto);
+    const saldo = total - adelanto;
+    const veh = [exp.tipoVehiculo, exp.marca, exp.modelo, exp.anio ? '('+exp.anio+')' : '', exp.dominio ? '- Dominio '+exp.dominio : ''].filter(Boolean).join(' ');
+    const detalle = items.length ? '\n\nIncluye:\n' + items.map(x => `• ${x.concepto}`).join('\n') : '';
+    return `Hola ${exp.cliente || ''}, te envío el presupuesto solicitado.\n\n${titulo}${veh ? '\nVehículo: ' + veh : ''}${detalle}\n\nMonto total: ${money(total)}\nAdelanto registrado: ${money(adelanto)}\nSaldo restante: ${saldo <= 0 && total > 0 ? 'PAGO COMPLETO' : money(Math.max(0,saldo))}\n\nAmanda Galarza - Mandataria Nacional`;
+  };
+
+  window.abrirPresupuesto = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const items = itemsExp(exp);
+    const total = n(exp.total);
+    const fecha = (typeof agFecha === 'function') ? agFecha() : new Date().toLocaleDateString('es-AR');
+    const nro = (typeof numeroPresupuesto === 'function') ? numeroPresupuesto(exp) : '10-0001';
+    const titulo = tituloExp(exp) || (items.length ? 'Presupuesto personalizado' : (exp.tramite || 'Trámite automotor'));
+    let lista = items.length ? items.map(i=>`<li>${safe(i.concepto)}</li>`).join('') : '';
+    if(!lista && window.baseChecklist && window.baseChecklist[exp.tramite]) lista = window.baseChecklist[exp.tramite].map(i=>`<li>${safe(i)}</li>`).join('');
+    if(!lista) lista = '<li>Gestión y asesoramiento del trámite solicitado.</li>';
+    const obs = exp.obs ? `<div class="nota"><b>Observaciones:</b><br>${safe(exp.obs).replace(/\n/g,'<br>')}</div>` : '';
+    const logo = (typeof AG_LOGO_DATA !== 'undefined') ? AG_LOGO_DATA : '';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Presupuesto ${nro}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#eee;color:#222;padding:22px}.hoja{max-width:820px;margin:auto;background:white;border-radius:18px;overflow:hidden;border:1px solid #ddd}.head{display:flex;align-items:center;gap:18px;background:linear-gradient(135deg,#111,#2b2112);color:white;padding:24px;border-bottom:4px solid #d6a33a}.logo{width:92px;height:92px;border-radius:50%;object-fit:cover;border:2px solid #d6a33a;background:#000}.brand h1{margin:0;font-size:27px;letter-spacing:.04em}.brand div{font-size:12px;color:#e8c56e;text-transform:uppercase;letter-spacing:.22em;margin-top:4px}.nro{margin-left:auto;text-align:right;font-size:13px;line-height:1.6}.body{padding:26px}.titulo{font-size:22px;font-weight:900;margin:0 0 16px;color:#111;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:12px}.lbl{font-size:10px;text-transform:uppercase;color:#777;font-weight:900;letter-spacing:.09em}.val{font-size:14px;font-weight:800;margin-top:5px}.incluye{border:1px solid #e4e4e7;border-radius:14px;padding:16px;background:#fff}.incluye h3{margin:0 0 10px;color:#92400e;font-size:14px;text-transform:uppercase}.incluye ul{margin:0;padding-left:20px;line-height:1.65;font-size:13px}.total{margin-top:18px;background:#fffbeb;border:2px solid #d6a33a;border-radius:14px;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:12px}.total span{font-size:13px;text-transform:uppercase;font-weight:900;color:#78350f}.total b{font-size:26px;color:#111}.nota{margin-top:16px;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:13px;font-size:12px;line-height:1.5;color:#444}.firma{display:flex;justify-content:space-between;margin-top:36px;gap:28px;font-size:12px;color:#555}.linea{border-top:1px solid #999;padding-top:8px;min-width:220px;text-align:center}.pie{padding:16px 26px;border-top:1px solid #eee;font-size:11px;color:#777;display:flex;justify-content:space-between;gap:10px}@media(max-width:700px){body{padding:8px}.head{display:block;text-align:center}.nro{text-align:center;margin:12px 0 0}.grid{grid-template-columns:1fr}.total{display:block;text-align:center}.firma{display:block}.linea{margin-top:28px}}@media print{body{background:white;padding:0}.hoja{border:0;border-radius:0}}</style></head><body><div class="hoja"><div class="head">${logo ? `<img class="logo" src="${logo}">` : ''}<div class="brand"><h1>Amanda Galarza</h1><div>Mandataria | Gestora automotor</div></div><div class="nro"><b>Presupuesto N° ${nro}</b><br>Fecha: ${fecha}<br>Validez: 7 días</div></div><div class="body"><h2 class="titulo">Presupuesto – ${safe(titulo)}</h2><div class="grid"><div class="box"><div class="lbl">Cliente</div><div class="val">${safe(exp.cliente||'Sin cliente')}</div></div><div class="box"><div class="lbl">DNI / CUIT</div><div class="val">${safe(exp.dni||'S/D')}</div></div><div class="box"><div class="lbl">Dominio</div><div class="val">${safe((exp.dominio||'S/D').toUpperCase())}</div></div><div class="box"><div class="lbl">Vehículo</div><div class="val">${safe([exp.tipoVehiculo,exp.marca,exp.modelo,exp.anio? '('+exp.anio+')':''].filter(Boolean).join(' '))}</div></div><div class="box"><div class="lbl">Registro</div><div class="val">${safe(exp.registroDnrpa||'A confirmar')}</div></div><div class="box"><div class="lbl">Teléfono</div><div class="val">${safe(exp.telefono||'S/D')}</div></div></div><div class="incluye"><h3>Incluye</h3><ul>${lista}</ul></div><div class="total"><span>Monto total</span><b>${money(total)}</b></div>${obs}<div class="firma"><div class="linea">Amanda Galarza<br>Mandataria Automotor</div><div class="linea">Firma / conformidad cliente</div></div></div><div class="pie"><span>Documento generado desde plataforma de gestión</span><span>Presupuesto N° ${nro}</span></div></div><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ alert('Permití ventanas emergentes para imprimir o guardar PDF.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
+  const oldDetalle = window.verDetalleExpediente;
+  window.verDetalleExpediente = function(idx){
+    if(typeof oldDetalle === 'function') oldDetalle(idx);
+    setTimeout(()=>{
+      const exp = (window.datos || datos || [])[idx];
+      const t = tituloExp(exp);
+      if(!t) return;
+      const tituloEls = document.querySelectorAll('#detalleExpediente h2, #detalleExpediente h3');
+      // No forzamos diseño: solo dejamos el título disponible en el encabezado si hay tarjeta de trámite.
+    },0);
+  };
+
+  setTimeout(()=>{ asegurarCampoTitulo(); window.togglePresupuestoManual(); }, 80);
+})();
 </script>
 
 </body>
