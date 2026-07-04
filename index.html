@@ -773,7 +773,12 @@ input, select, textarea, button {
   <label class="money-field"><span>Form. 1057</span><input id="f1057" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
   <label class="money-field"><span>Form. 13</span><input id="s13" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
   <label class="money-field"><span>Sol. 08</span><input id="s08" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
-  <label class="money-field"><span>Certif. Firma</span><input id="cf" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <input id="cf" type="hidden" value="0">
+  <label class="money-field"><span>Cert. Firma Vendedor</span><input id="cfv" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Cert. Firma Comprador</span><input id="cfc" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Cert. Firma Otros</span><input id="cfo" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Alta Muni</span><input id="altaMuni" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
+  <label class="money-field"><span>Otros gastos</span><input id="og" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
   <label class="money-field"><span>Gasto Viaje</span><input id="gv" type="number" class="bg-white border border-zinc-300 p-1.5 text-center rounded text-zinc-800 focus:border-amber-500" value="0" oninput="calc()"></label>
   <label class="money-field money-field-adelanto"><span>Adelanto</span><input id="adelanto" type="number" class="bg-white border border-cyan-900 p-1.5 text-center rounded text-cyan-400 focus:border-cyan-500 font-bold" value="0" oninput="calc()"></label>
 </div>
@@ -3541,6 +3546,180 @@ setTimeout(togglePresupuestoManual, 0);
   };
 
   setTimeout(()=>{ asegurarCampoTitulo(); window.togglePresupuestoManual(); }, 80);
+})();
+</script>
+
+
+<script id="ag-parche-incluye-y-valores-20260704">
+(function(){
+  const n = v => parseFloat(v) || 0;
+  const money = v => '$ ' + (n(v)).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const safe = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const incluyePorTramite = {
+    "Inscripción Inicial (0KM)": ["Asesoramiento inicial para la inscripción del vehículo 0KM.","Control de documentación de compra y datos del titular.","Preparación y presentación de la gestión ante el Registro Automotor.","Seguimiento del trámite hasta su finalización."],
+    "Transferencia (Digital / Física)": ["Gestión integral de transferencia digital o física.","Control de datos de comprador, vendedor y vehículo.","Coordinación de firmas y certificaciones según corresponda.","Presentación de documentación en el Registro Automotor.","Seguimiento hasta la inscripción final."],
+    "Transferencia por Sucesión / Of. Judicial": ["Revisión de documentación judicial vinculada al automotor.","Preparación de la presentación ante el Registro Automotor.","Asesoramiento para la inscripción a favor del adjudicatario.","Seguimiento del expediente registral."],
+    "Inscripción de Leasing": ["Control de documentación contractual.","Preparación de la presentación registral.","Gestión ante el Registro Automotor.","Seguimiento hasta la toma de razón."],
+    "Cancelación de Leasing": ["Control de documentación de cancelación.","Preparación de formularios y presentación registral.","Gestión ante el Registro Automotor.","Seguimiento hasta la finalización."],
+    "Alta API": ["Gestión de alta impositiva del vehículo.","Control de datos del titular y dominio.","Presentación ante el organismo correspondiente.","Entrega de constancia o resultado de gestión."],
+    "Baja API": ["Gestión de baja impositiva del vehículo.","Control de documentación y estado del dominio.","Presentación ante el organismo correspondiente.","Seguimiento hasta la constancia final."],
+    "Alta y baja API": ["Gestión combinada de alta y baja impositiva.","Control de documentación y datos registrales.","Presentación ante los organismos correspondientes.","Seguimiento completo del trámite."],
+    "Certificado de Libre Deuda API": ["Solicitud y gestión del certificado de libre deuda.","Control de datos del dominio.","Seguimiento de emisión.","Entrega de constancia al cliente."],
+    "Informe de Dominio (Histórico / Nominal)": ["Solicitud del informe registral correspondiente.","Control de datos del dominio o titular.","Gestión ante DNRPA.","Entrega del informe oficial al cliente."],
+    "Certificado de Dominio": ["Solicitud del certificado de dominio.","Control de documentación del titular.","Presentación ante el Registro Automotor.","Seguimiento hasta la emisión."],
+    "Informe de Estado de Dominio (DNRPA)": ["Solicitud del estado registral del dominio.","Control de datos cargados.","Gestión ante DNRPA.","Entrega del resultado al cliente."],
+    "Denuncia de Compra y Posesión": ["Asesoramiento sobre la situación documental del vehículo.","Preparación de la denuncia de compra y posesión.","Presentación ante el Registro Automotor.","Seguimiento del expediente."],
+    "Denuncia de Venta (Eximición de responsabilidad)": ["Confección y gestión de denuncia de venta.","Control de datos del comprador y fecha de entrega.","Presentación ante el Registro Automotor.","Entrega de constancia de trámite."],
+    "Denuncia de Robo o Hurto": ["Preparación de la gestión registral por robo o hurto.","Control de denuncia y documentación respaldatoria.","Presentación ante el Registro Automotor.","Seguimiento hasta su registración."],
+    "Communication de Recupero": ["Gestión de comunicación de recupero del vehículo.","Control de documentación policial o judicial.","Presentación ante el Registro Automotor.","Seguimiento del trámite."],
+    "Cédula Azul (Autorizado a Conducir)": ["Gestión de autorización para conducir.","Control de datos del titular y autorizado.","Presentación ante el Registro Automotor.","Seguimiento hasta emisión de la cédula."],
+    "Duplicado de Cédula Verde / Poseedor": ["Gestión de duplicado de cédula.","Control de documentación del titular.","Presentación ante el Registro Automotor.","Seguimiento hasta la emisión."],
+    "Duplicado de Título Automotor": ["Gestión de duplicado de título automotor.","Control de documentación y estado registral.","Presentación ante el Registro Automotor.","Seguimiento hasta la emisión del nuevo título."],
+    "Duplicado de Placas Metálicas (Patentes)": ["Gestión de duplicado de placas metálicas.","Control de documentación y denuncia si corresponde.","Presentación ante el Registro Automotor.","Seguimiento hasta la emisión o autorización correspondiente."],
+    "Renovación por Vencimiento de Cédula": ["Gestión de renovación de cédula.","Control de datos del titular y dominio.","Presentación ante el Registro Automotor.","Seguimiento hasta su emisión."],
+    "Baja del Automotor (Definitiva / Desguace)": ["Asesoramiento y preparación de baja definitiva.","Control de documentación y elementos a entregar.","Presentación ante el Registro Automotor.","Seguimiento hasta la baja registral."],
+    "Baja Temporal": ["Gestión de baja temporal.","Control de documentación del titular y dominio.","Presentación ante el Registro Automotor.","Seguimiento del trámite."],
+    "Cambio de Radicación (Mera Presentación)": ["Gestión de cambio de radicación.","Control de domicilio y documentación del titular.","Presentación ante el Registro Automotor.","Seguimiento hasta la actualización registral."],
+    "Alta / Baja de Motor": ["Asesoramiento para alta o baja de motor.","Control de documentación técnica y registral.","Presentación ante el Registro Automotor.","Seguimiento hasta la inscripción."],
+    "Alta / Baja de Chasis o Cuadro": ["Gestión de alta o baja de chasis/cuadro.","Control de documentación técnica respaldatoria.","Presentación ante el Registro Automotor.","Seguimiento hasta la registración."],
+    "Cambio de Tipo de Carrocería": ["Gestión de cambio de tipo de carrocería.","Control de documentación técnica.","Presentación ante el Registro Automotor.","Seguimiento hasta la actualización del legajo."],
+    "Cambio de Uso (Ej: Particular a Taxi)": ["Asesoramiento sobre cambio de uso.","Control de documentación requerida.","Presentación ante el Registro Automotor.","Seguimiento hasta la actualización registral."],
+    "Inscripción de Prenda (Crédito Prendario)": ["Control de contrato prendario y datos de las partes.","Preparación de la presentación registral.","Gestión ante el Registro Automotor.","Seguimiento hasta la inscripción de la prenda."],
+    "Cancelación de Prenda": ["Control de documentación de cancelación.","Preparación de la presentación registral.","Gestión ante el Registro Automotor.","Seguimiento hasta el levantamiento de la prenda."],
+    "Inscripción / Cancelación de Medidas Cautelares (Embargos)": ["Control de oficio o documentación judicial.","Preparación de la presentación registral.","Gestión ante el Registro Automotor.","Seguimiento de la inscripción o cancelación."],
+    "Certificado de Seguridad Vehicular (CSV)": ["Asesoramiento sobre documentación necesaria para CSV.","Control de documentación técnica.","Preparación de presentación vinculada al trámite.","Seguimiento hasta obtener la constancia correspondiente."],
+    "RPA / RPM (Grabado de nueva codificación)": ["Asesoramiento para trámite RPA/RPM.","Control de documentación y verificación.","Preparación de presentación ante Registro.","Seguimiento hasta la asignación o registración."],
+    "Certificado de Fabricación / Importación Duplicado": ["Gestión de duplicado de certificado.","Control de documentación respaldatoria.","Presentación ante el organismo correspondiente.","Seguimiento hasta su emisión."]
+  };
+
+  function incluyeDe(exp){
+    const t = (exp && exp.tramite) || document.getElementById('tramite')?.value || '';
+    return incluyePorTramite[t] || ["Asesoramiento personalizado del trámite solicitado.","Control de documentación presentada.","Preparación y seguimiento de la gestión.","Acompañamiento hasta la finalización del trámite."];
+  }
+  window.agItemsIncluye = incluyeDe;
+  window.agIncluyePorTramite = incluyePorTramite;
+
+  function asegurarBloqueIncluye(){
+    let b = document.getElementById('bloqueIncluyeTramite');
+    if(!b){
+      const cont = document.getElementById('contenedorChecklist');
+      if(!cont) return null;
+      b = document.createElement('div');
+      b.id = 'bloqueIncluyeTramite';
+      b.className = 'mt-4 p-3 bg-white border border-zinc-300 rounded-lg hidden';
+      b.innerHTML = '<h4 class="font-bold text-xs text-amber-500 uppercase tracking-wide mb-2">📌 Incluye / detalle del presupuesto</h4><ul id="listaIncluyeTramite" class="list-disc pl-5 text-xs text-zinc-700 space-y-1"></ul>';
+      cont.insertAdjacentElement('afterend', b);
+    }
+    return b;
+  }
+  function actualizarIncluyeVisual(){
+    const b = asegurarBloqueIncluye();
+    if(!b) return;
+    const t = document.getElementById('tramite')?.value || '';
+    const ul = document.getElementById('listaIncluyeTramite');
+    if(!t){ b.classList.add('hidden'); if(ul) ul.innerHTML=''; return; }
+    const arr = incluyeDe({tramite:t});
+    if(ul) ul.innerHTML = arr.map(x=>`<li>${safe(x)}</li>`).join('');
+    b.classList.remove('hidden');
+  }
+  const oldChecklist = window.actualizarChecklist;
+  window.actualizarChecklist = function(){
+    if(typeof oldChecklist === 'function') oldChecklist.apply(this, arguments);
+    actualizarIncluyeVisual();
+  };
+
+  function syncCf(){
+    const sum = n(document.getElementById('cfv')?.value) + n(document.getElementById('cfc')?.value) + n(document.getElementById('cfo')?.value);
+    const cf = document.getElementById('cf');
+    if(cf) cf.value = sum;
+    return sum;
+  }
+  window.calc = function(){
+    const ids = ['hon','ara','f02','f04','f12','f059','f1057','s13','s08','gv','altaMuni','og'];
+    const cert = syncCf();
+    const total = ids.reduce((a,id)=>a+n(document.getElementById(id)?.value),0) + cert;
+    const ade = n(document.getElementById('adelanto')?.value);
+    const saldo = total - ade;
+    const totalEl=document.getElementById('total'); if(totalEl) totalEl.innerText = money(total);
+    const adeEl=document.getElementById('totalAdelanto'); if(adeEl) adeEl.innerText = money(ade);
+    const saldoEl=document.getElementById('saldoRestante');
+    if(saldoEl){
+      if(saldo <= 0 && total > 0){ saldoEl.innerText='PAGO COMPLETO'; saldoEl.className='text-lg font-black text-emerald-600'; }
+      else { saldoEl.innerText=money(Math.max(0,saldo)); saldoEl.className='text-lg font-black text-amber-500'; }
+    }
+    return total;
+  };
+
+  const oldExp = window.expDesdeFormularioActual;
+  window.expDesdeFormularioActual = function(){
+    const exp = typeof oldExp === 'function' ? oldExp() : {};
+    exp.cfv = document.getElementById('cfv')?.value || 0;
+    exp.cfc = document.getElementById('cfc')?.value || 0;
+    exp.cfo = document.getElementById('cfo')?.value || 0;
+    exp.og = document.getElementById('og')?.value || 0;
+    exp.altaMuni = document.getElementById('altaMuni')?.value || 0;
+    exp.cf = syncCf();
+    exp.total = window.calc();
+    return exp;
+  };
+
+  window.conceptosPresupuesto = function(exp){
+    const items = [
+      ['Honorarios', exp.hon], ['Aranceles', exp.ara], ['Formulario 02', exp.f02], ['Formulario 04', exp.f04], ['Formulario 12', exp.f12], ['Formulario 59', exp.f059], ['Formulario 1057', exp.f1057], ['Formulario 13', exp.s13], ['Solicitud 08', exp.s08],
+      ['Cert. Firma Vendedor', exp.cfv], ['Cert. Firma Comprador', exp.cfc], ['Cert. Firma Otros', exp.cfo], ['Alta Muni', exp.altaMuni], ['Gasto de viaje', exp.gv], ['Otros gastos', exp.og]
+    ];
+    return items.map(([nom,val])=>[nom,n(val)]).filter(x=>x[1]>0);
+  };
+
+  window.construirMensajeWhatsApp = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const total = n(exp.total);
+    const adelanto = n(exp.adelanto);
+    const saldo = total - adelanto;
+    const veh = [exp.tipoVehiculo, exp.marca, exp.modelo, exp.anio ? '('+exp.anio+')' : '', exp.dominio ? '- Dominio '+exp.dominio : ''].filter(Boolean).join(' ');
+    const incluye = incluyeDe(exp).map(x=>'• '+x).join('\n');
+    return `Hola ${exp.cliente || ''}, te envío el presupuesto correspondiente al trámite "${exp.tramite || 'trámite automotor'}"${veh ? '\nVehículo: '+veh : ''}.\n\n✅ Incluye:\n${incluye}\n\nMonto total: ${money(total)}\nAdelanto registrado: ${money(adelanto)}\nSaldo restante: ${saldo <= 0 && total > 0 ? 'PAGO COMPLETO' : money(Math.max(0,saldo))}\n\nAmanda Galarza - Mandataria Nacional`;
+  };
+
+  window.abrirPresupuesto = function(exp){
+    exp = exp || window.expDesdeFormularioActual();
+    const total = n(exp.total);
+    const fecha = new Date().toLocaleDateString('es-AR');
+    const nro = (typeof numeroPresupuesto === 'function') ? numeroPresupuesto(exp) : '10-0001';
+    const lista = incluyeDe(exp).map(i=>`<li>${safe(i)}</li>`).join('');
+    const obs = exp.obs ? `<div class="nota"><b>Observaciones:</b><br>${safe(exp.obs).replace(/\n/g,'<br>')}</div>` : '';
+    const logo = (typeof AG_LOGO_DATA !== 'undefined') ? AG_LOGO_DATA : '';
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Presupuesto ${nro}</title><style>*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#eee;color:#222;padding:22px}.hoja{max-width:820px;margin:auto;background:white;border-radius:18px;overflow:hidden;border:1px solid #ddd}.head{display:flex;align-items:center;gap:18px;background:linear-gradient(135deg,#111,#2b2112);color:white;padding:24px;border-bottom:4px solid #d6a33a}.logo{width:92px;height:92px;border-radius:50%;object-fit:cover;border:2px solid #d6a33a;background:#000}.brand h1{margin:0;font-size:27px;letter-spacing:.04em}.brand div{font-size:12px;color:#e8c56e;text-transform:uppercase;letter-spacing:.22em;margin-top:4px}.nro{margin-left:auto;text-align:right;font-size:13px;line-height:1.6}.body{padding:26px}.titulo{font-size:22px;font-weight:900;margin:0 0 16px;color:#111;text-transform:uppercase}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:12px}.lbl{font-size:10px;text-transform:uppercase;color:#777;font-weight:900;letter-spacing:.09em}.val{font-size:14px;font-weight:800;margin-top:5px}.incluye{border:1px solid #e4e4e7;border-radius:14px;padding:16px;background:#fff}.incluye h3{margin:0 0 10px;color:#92400e;font-size:14px;text-transform:uppercase}.incluye ul{margin:0;padding-left:20px;line-height:1.65;font-size:13px}.total{margin-top:18px;background:#fffbeb;border:2px solid #d6a33a;border-radius:14px;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:12px}.total span{font-size:13px;text-transform:uppercase;font-weight:900;color:#78350f}.total b{font-size:26px;color:#111}.nota{margin-top:16px;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:13px;font-size:12px;line-height:1.5;color:#444}.firma{display:flex;justify-content:space-between;margin-top:36px;gap:28px;font-size:12px;color:#555}.linea{border-top:1px solid #999;padding-top:8px;min-width:220px;text-align:center}.pie{padding:16px 26px;border-top:1px solid #eee;font-size:11px;color:#777;display:flex;justify-content:space-between;gap:10px}@media(max-width:700px){body{padding:8px}.head{display:block;text-align:center}.nro{text-align:center;margin:12px 0 0}.grid{grid-template-columns:1fr}.total{display:block;text-align:center}.firma{display:block}.linea{margin-top:28px}}@media print{body{background:white;padding:0}.hoja{border:0;border-radius:0}}</style></head><body><div class="hoja"><div class="head">${logo ? `<img class="logo" src="${logo}">` : ''}<div class="brand"><h1>Amanda Galarza</h1><div>Mandataria | Gestora automotor</div></div><div class="nro"><b>Presupuesto N° ${nro}</b><br>Fecha: ${fecha}<br>Validez: 7 días</div></div><div class="body"><h2 class="titulo">Presupuesto – ${safe(exp.tramite || 'Trámite automotor')}</h2><div class="grid"><div class="box"><div class="lbl">Cliente</div><div class="val">${safe(exp.cliente||'Sin cliente')}</div></div><div class="box"><div class="lbl">DNI / CUIT</div><div class="val">${safe(exp.dni||'S/D')}</div></div><div class="box"><div class="lbl">Dominio</div><div class="val">${safe((exp.dominio||'S/D').toUpperCase())}</div></div><div class="box"><div class="lbl">Vehículo</div><div class="val">${safe([exp.tipoVehiculo,exp.marca,exp.modelo,exp.anio? '('+exp.anio+')':''].filter(Boolean).join(' '))}</div></div><div class="box"><div class="lbl">Registro</div><div class="val">${safe(exp.registroDnrpa||'A confirmar')}</div></div><div class="box"><div class="lbl">Teléfono</div><div class="val">${safe(exp.telefono||'S/D')}</div></div></div><div class="incluye"><h3>Incluye</h3><ul>${lista}</ul></div><div class="total"><span>Monto total</span><b>${money(total)}</b></div>${obs}<div class="firma"><div class="linea">Amanda Galarza<br>Mandataria Automotor</div><div class="linea">Firma / conformidad cliente</div></div></div><div class="pie"><span>Documento generado desde plataforma de gestión</span><span>Presupuesto N° ${nro}</span></div></div><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ alert('Permití ventanas emergentes para imprimir o guardar PDF.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
+
+  const oldEditarExpedienteAG = window.editarExpediente;
+  window.editarExpediente = function(idx){
+    if(typeof oldEditarExpedienteAG === 'function') oldEditarExpedienteAG(idx);
+    setTimeout(()=>{
+      const exp = (typeof datos !== 'undefined' && datos[idx]) ? datos[idx] : null;
+      const cfv=document.getElementById('cfv'), cfc=document.getElementById('cfc'), cfo=document.getElementById('cfo'), altaMuni=document.getElementById('altaMuni'), og=document.getElementById('og');
+      if(cfv && !n(cfv.value)) cfv.value = n(exp && exp.cf);
+      if(cfc) cfc.value = cfc.value || 0;
+      if(cfo) cfo.value = cfo.value || 0;
+      if(altaMuni) altaMuni.value = altaMuni.value || 0;
+      if(og) og.value = og.value || 0;
+      actualizarIncluyeVisual();
+      window.calc();
+    },0);
+  };
+
+  setTimeout(()=>{
+    asegurarBloqueIncluye();
+    actualizarIncluyeVisual();
+    const cf=document.getElementById('cf');
+    if(cf && n(cf.value) && !n(document.getElementById('cfv')?.value)) document.getElementById('cfv').value = cf.value;
+    window.calc();
+  },100);
 })();
 </script>
 
