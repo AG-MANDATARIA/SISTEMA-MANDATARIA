@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MManndataria Amanda Galarza</title>
+<title>Mandataria Amanda Galarza</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -1007,7 +1007,7 @@ function guardarValoresExtraEnDocs(documentos, exp) {
 }
 
 function desdeSupabase(row) {
- const extras = valoresExtraDesdeDocs(row.documentos);
+ const extras = valoresExtraDesdeDocs(row.documentos); // compatibilidad con datos guardados en versiones anteriores
  return {
    id: row.id,
    cliente: row.cliente || '',
@@ -1034,11 +1034,11 @@ function desdeSupabase(row) {
    s13: row.form_13 || 0,
    s08: row.solicitud_08 || 0,
    cf: row.certificacion_firma || 0,
-   cfv: extras.cfv || row.certificacion_firma || 0,
-   cfc: extras.cfc || 0,
-   cfo: extras.cfo || 0,
-   altaMuni: extras.altaMuni || 0,
-   og: extras.og || 0,
+   cfv: row.certificacion_firma_vendedor ?? extras.cfv ?? row.certificacion_firma ?? 0,
+   cfc: row.certificacion_firma_comprador ?? extras.cfc ?? 0,
+   cfo: row.certificacion_firma_otros ?? extras.cfo ?? 0,
+   altaMuni: row.alta_muni ?? extras.altaMuni ?? 0,
+   og: row.otros_gastos ?? extras.og ?? 0,
    gv: row.gasto_viaje || 0,
    adelanto: row.adelanto || 0,
    obs: row.observaciones || '',
@@ -1053,7 +1053,6 @@ function desdeSupabase(row) {
 }
 
 function paraSupabase(exp) {
- exp.documentos = guardarValoresExtraEnDocs(exp.documentos || [], exp);
  return {
    cliente: exp.cliente,
    dni: exp.dni,
@@ -1079,6 +1078,11 @@ function paraSupabase(exp) {
    form_13: numero(exp.s13),
    solicitud_08: numero(exp.s08),
    certificacion_firma: numero(exp.cf),
+   certificacion_firma_vendedor: numero(exp.cfv),
+   certificacion_firma_comprador: numero(exp.cfc),
+   certificacion_firma_otros: numero(exp.cfo),
+   alta_muni: numero(exp.altaMuni),
+   otros_gastos: numero(exp.og),
    gasto_viaje: numero(exp.gv),
    adelanto: numero(exp.adelanto),
    total: numero(exp.total),
